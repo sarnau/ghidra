@@ -21,6 +21,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FilenameFilter;
 import java.util.*;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -233,6 +234,12 @@ public class GhidraFileChooser extends ReusableDialogComponentProvider implement
 	private SelectionListener<File> selectionListener;
 
 	private String lastDirectoryPreferencKey;
+
+	/**
+	 * The directory most recently requested by the client.  Directory changes are applied to the
+	 * Swing UI asynchronously, so the native macOS dialog reads this value instead.
+	 */
+	private File requestedDirectory;
 
 	/**
 	 * Constructs a new ghidra file chooser.
@@ -1083,6 +1090,7 @@ public class GhidraFileChooser extends ReusableDialogComponentProvider implement
 
 		File dir = new File(path);
 		if (isDirectory(dir)) {
+			requestedDirectory = dir;
 			updateDirOnly(dir, true);
 		}
 	}
@@ -1253,6 +1261,11 @@ public class GhidraFileChooser extends ReusableDialogComponentProvider implement
 	}
 
 	public void show() {
+		if (NativeMacFileDialog.isAvailable(fileSelectionMode)) {
+			showNativeDialog();
+			return;
+		}
+
 		validatedFiles.setFile(null);
 		initialFile = selectedFiles.getFile();
 		initialFileToSelect = initialFile;
@@ -1271,6 +1284,40 @@ public class GhidraFileChooser extends ReusableDialogComponentProvider implement
 		restorePreferences();
 		DockingWindowManager.showDialog(parent, this);
 		cancelEdits();
+	}
+
+	private void showNativeDialog() {
+		validatedFiles.setFile(null);
+
+		File currentDirectory = requestedDirectory;
+		if (currentDirectory == null) {
+			currentDirectory = currentDirectory();
+		}
+		if (currentDirectory != null && isSpecialDirectory(currentDirectory)) {
+			currentDirectory = null;
+		}
+
+		GhidraFileFilter filter = (GhidraFileFilter) filterCombo.getSelectedItem();
+		FilenameFilter nameFilter = filter == null || filter == GhidraFileFilter.ALL ? null
+				: (dir, name) -> filter.accept(new File(dir, name), fileChooserModel);
+
+		boolean save = NativeMacFileDialog.isSaveDialog(getTitle(), okButton.getText());
+		File initialSelection = selectedFiles.getFile();
+		File startDirectory = currentDirectory;
+		List<File> files = Swing.runNow(() -> NativeMacFileDialog.show(parent, getTitle(),
+			fileSelectionMode, save, multiSelectionEnabled, initialSelection, startDirectory,
+			nameFilter));
+
+		wasCancelled = files.isEmpty();
+		if (wasCancelled) {
+			return;
+		}
+
+		selectedFiles.setFiles(files);
+		validatedFiles.setFiles(files);
+		requestedDirectory = files.get(0).getParentFile();
+		saveLastDirectory();
+		Preferences.store();
 	}
 
 	@Override
@@ -1395,6 +1442,7 @@ public class GhidraFileChooser extends ReusableDialogComponentProvider implement
 			directory = directory.getParentFile();
 		}
 
+		requestedDirectory = directory;
 		updateDirOnly(directory, false);
 	}
 
