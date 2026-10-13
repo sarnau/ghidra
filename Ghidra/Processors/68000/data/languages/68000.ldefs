@@ -12,6 +12,8 @@
             id="68000:BE:32:default">
     <description>Motorola 32-bit 68040</description>
     <compiler name="default" spec="68000.cspec" id="default"/>
+    <compiler name="16-bit aligned, 32-bit int" spec="68000_align2_int32.cspec" id="align2_int32"/>
+    <compiler name="16-bit aligned, 16-bit int" spec="68000_align2_int16.cspec" id="align2_int16"/>
     <external_name tool="gnu" name="m68k"/>
     <external_name tool="IDA-PRO" name="68000"/>
     <external_name tool="IDA-PRO" name="68040"/>
@@ -31,6 +33,8 @@
             id="68000:BE:32:MC68030">
     <description>Motorola 32-bit 68030</description>
     <compiler name="default" spec="68000.cspec" id="default"/>
+    <compiler name="16-bit aligned, 32-bit int" spec="68000_align2_int32.cspec" id="align2_int32"/>
+    <compiler name="16-bit aligned, 16-bit int" spec="68000_align2_int16.cspec" id="align2_int16"/>
     <external_name tool="gnu" name="m68k:68030"/>
     <external_name tool="IDA-PRO" name="68030"/>
     <external_name tool="DWARF.register.mapping.file" name="68000.dwarf"/>
@@ -48,6 +52,8 @@
             id="68000:BE:32:MC68020">
     <description>Motorola 32-bit 68020</description>
     <compiler name="default" spec="68000.cspec" id="default"/>
+    <compiler name="16-bit aligned, 32-bit int" spec="68000_align2_int32.cspec" id="align2_int32"/>
+    <compiler name="16-bit aligned, 16-bit int" spec="68000_align2_int16.cspec" id="align2_int16"/>
     <external_name tool="gnu" name="m68k:68020"/>
     <external_name tool="IDA-PRO" name="68010"/>
     <external_name tool="IDA-PRO" name="68020"/>
@@ -84,6 +90,8 @@
             id="68000:BE:32:CPU32">
     <description>Motorola 32-bit CPU32 (MC68340)</description>
     <compiler name="default" spec="68000.cspec" id="default"/>
+    <compiler name="16-bit aligned, 32-bit int" spec="68000_align2_int32.cspec" id="align2_int32"/>
+    <compiler name="16-bit aligned, 16-bit int" spec="68000_align2_int16.cspec" id="align2_int16"/>
     <external_name tool="DWARF.register.mapping.file" name="68000.dwarf"/>
   </language>
 </language_definitions>

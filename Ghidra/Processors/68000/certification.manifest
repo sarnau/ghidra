@@ -7,6 +7,8 @@ data/languages/68000.ldefs||GHIDRA||||END|
 data/languages/68000.opinion||GHIDRA||||END|
 data/languages/68000.pspec||GHIDRA||||END|
 data/languages/68000.sinc||GHIDRA||||END|
+data/languages/68000_align2_int16.cspec||GHIDRA||||END|
+data/languages/68000_align2_int32.cspec||GHIDRA||||END|
 data/languages/68000_register.cspec||GHIDRA||||END|
 data/languages/68020.slaspec||GHIDRA||reviewed||END|
 data/languages/68030.slaspec||GHIDRA||||END|
