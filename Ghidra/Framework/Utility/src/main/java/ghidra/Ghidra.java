@@ -48,8 +48,16 @@ public class Ghidra {
 	 * "java-lang-thread".
 	 * <p>
 	 * This method should be publicly accessible so other tools can access it (i.e., PyGhidra)
+	 * <p>
+	 * This does nothing on other platforms.  In particular, on macOS this must not initialize AWT,
+	 * since PyGhidra calls it from the process's main thread.  AWT started from the main thread
+	 * never installs its application delegate, so Command-Q and the application menu's Quit
+	 * item are silently ignored.
 	 */
 	public static void setLinuxApplicationName() {
+		if (!shouldSetApplicationName(System.getProperty("os.name"))) {
+			return;
+		}
 		try {
 			Taskbar.isTaskbarSupported();
 		}
@@ -57,5 +65,9 @@ public class Ghidra {
 			// This can happen if we are running in a headless environment.  We don't need to
 			// worry about setting the application name in this case.
 		}
+	}
+
+	static boolean shouldSetApplicationName(String osName) {
+		return osName != null && osName.startsWith("Linux");
 	}
 }
