@@ -2,9 +2,9 @@
 //
 // Usage: swift make_icon_artwork.swift <GHIDRA_2.png> <output.png>
 //
-// The layer shows the dragon's head and right-hand loop.  The square cut-out is
-// chosen so the body crossing to the other loop leaves the icon at its left edge,
-// where the icon shape clips it.
+// The layer is a close-up of the dragon's head inside its right-hand loop.  The
+// square cut-out is chosen so the loop and the body crossing to the other loop
+// leave the icon at its edges, where the icon shape clips them.
 
 import CoreGraphics
 import Foundation
@@ -14,9 +14,9 @@ import UniformTypeIdentifiers
 let canvasSize = 1024
 
 // Square region of the logo, in logo pixels (y down); it may extend past the logo.
-let cropX = 745.0
-let cropY = -50.0
-let cropSide = 880.0
+let cropX = 770.0
+let cropY = 40.0
+let cropSide = 560.0
 
 let args = CommandLine.arguments
 guard args.count == 3 else {
