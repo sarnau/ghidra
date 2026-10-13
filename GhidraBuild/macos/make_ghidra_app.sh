@@ -13,6 +13,9 @@
 # (set PYTHON to use a different one).  Python virtual environments cannot be
 # moved, so the environment is created at its final location; rerun this
 # script if the application is moved.
+#
+# The icon is compiled from Ghidra.icon (an Icon Composer icon) and needs Xcode.
+# Its artwork is generated from the Ghidra logo by make_icon_artwork.swift.
 
 set -euo pipefail
 
@@ -31,6 +34,7 @@ die() {
 
 [ -n "$ZIP" ] && [ -f "$ZIP" ] || die "no Ghidra distribution zip found; run 'gradle buildGhidra' first"
 command -v "$PYTHON" >/dev/null || die "'$PYTHON' not found; install it or set PYTHON"
+xcrun --find actool >/dev/null 2>&1 || die "actool not found; install Xcode"
 [[ "$APP" == *.app ]] || die "destination must end in .app: $APP"
 
 if [ -e "$APP" ]; then
@@ -61,18 +65,12 @@ echo "Creating PyGhidra environment with $("$PYTHON" --version)"
 "$RES/venv/bin/python3" -m pip install --quiet --disable-pip-version-check --no-index \
 	-f "$RES/ghidra/Ghidra/Features/PyGhidra/pypkg/dist" pyghidra
 
-echo "Creating icon"
-ICONSET="$TMP/Ghidra.iconset"
-mkdir -p "$ICONSET"
-sips -s format png "$RES/ghidra/support/ghidra.ico" --out "$TMP/ghidra.png" >/dev/null
-for size in 16 32 128 256; do
-	sips -z $size $size "$TMP/ghidra.png" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-	if [ $((size * 2)) -le 256 ]; then
-		sips -z $((size * 2)) $((size * 2)) "$TMP/ghidra.png" \
-			--out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-	fi
-done
-iconutil -c icns "$ICONSET" -o "$RES/Ghidra.icns"
+echo "Compiling icon"
+# Produces Assets.car with the layered icon, plus Ghidra.icns for older macOS versions
+xcrun actool "$SCRIPT_DIR/Ghidra.icon" --compile "$RES" --platform macosx \
+	--minimum-deployment-target 11.0 --app-icon Ghidra \
+	--output-partial-info-plist "$TMP/icon.plist" --errors --warnings >/dev/null
+[ -f "$RES/Assets.car" ] && [ -f "$RES/Ghidra.icns" ] || die "actool did not produce the icon"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -88,6 +86,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
 	<key>CFBundleExecutable</key>
 	<string>Ghidra</string>
 	<key>CFBundleIconFile</key>
+	<string>Ghidra</string>
+	<key>CFBundleIconName</key>
 	<string>Ghidra</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
