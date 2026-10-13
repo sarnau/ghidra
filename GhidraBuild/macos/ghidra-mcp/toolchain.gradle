@@ -1,0 +1,12 @@
+// Gradle init script for building GhidraMCP against this Ghidra.
+//
+// GhidraMCP pins its Java toolchain to 21, but Ghidra 12.3 is compiled for a newer Java and
+// cannot be compiled against with Java 21.  Use the JDK that runs Gradle instead, which is
+// the one Ghidra runs on.
+allprojects {
+    afterEvaluate {
+        extensions.findByType(JavaPluginExtension)?.toolchain {
+            languageVersion = JavaLanguageVersion.of(Runtime.version().feature())
+        }
+    }
+}

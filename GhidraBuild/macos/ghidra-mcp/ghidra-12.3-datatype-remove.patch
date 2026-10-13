@@ -1,0 +1,31 @@
+diff --git a/src/main/java/com/xebyte/core/DataTypeService.java b/src/main/java/com/xebyte/core/DataTypeService.java
+index 86612f7..689f12f 100644
+--- a/src/main/java/com/xebyte/core/DataTypeService.java
++++ b/src/main/java/com/xebyte/core/DataTypeService.java
+@@ -1319,7 +1319,7 @@ public class DataTypeService {
+                 // Check if type is in use (simplified check)
+                 // Note: Ghidra will prevent deletion if type is in use during remove operation
+ 
+-                boolean deleted = dtm.remove(dataType, null);
++                boolean deleted = dtm.remove(dataType);
+                 if (deleted) {
+                     result.append("Data type '").append(typeName).append("' deleted successfully");
+                     success.set(true);
+@@ -1625,7 +1625,7 @@ public class DataTypeService {
+                 StringBuilder delMsg = new StringBuilder();
+                 try {
+                     threadingStrategy.executeWrite(program, "Recreate struct delete", () -> {
+-                        deleted.set(dtm.remove(existing, null));
++                        deleted.set(dtm.remove(existing));
+                         if (deleted.get()) {
+                             delMsg.append("Removed existing type before recreate");
+                         } else {
+@@ -1845,7 +1845,7 @@ public class DataTypeService {
+         try {
+             threadingStrategy.executeWrite(program, "Delete placeholder type " + logicalName, () -> {
+                 DataTypeManager dtm = program.getDataTypeManager();
+-                boolean deleted = dtm.remove(dataType, null);
++                boolean deleted = dtm.remove(dataType);
+                 if (deleted) {
+                     result.append("Removed placeholder '").append(dataType.getPathName()).append("'");
+                     success.set(true);

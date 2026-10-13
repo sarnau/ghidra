@@ -16,6 +16,13 @@
 #
 # The icon is compiled from Ghidra.icon (an Icon Composer icon) and needs Xcode.
 # Its artwork is generated from the Ghidra logo by make_icon_artwork.swift.
+#
+# GhidraMCP (https://github.com/bethington/ghidra-mcp) is embedded when its
+# checkout is found at GHIDRA_MCP_DIR (default: a ghidra-mcp checkout next to
+# this repository).  Its committed state is built against the bundled Ghidra,
+# with the patches in ghidra-mcp/ applied where needed, and installed as a
+# Ghidra extension; its MCP bridge is installed into the bundled environment
+# as Contents/Resources/venv/bin/bridge-mcp-ghidra.
 
 set -euo pipefail
 
@@ -25,6 +32,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ZIP="${1:-$(ls -t "$REPO_DIR"/build/dist/ghidra_*.zip 2>/dev/null | head -n 1)}"
 APP="${2:-/Applications/Ghidra.app}"
 PYTHON="${PYTHON:-python3.13}"
+GHIDRA_MCP_DIR="${GHIDRA_MCP_DIR:-$REPO_DIR/../ghidra-mcp}"
 MARKER="Contents/Resources/.made-by-make_ghidra_app"
 
 die() {
@@ -64,6 +72,34 @@ echo "Creating PyGhidra environment with $("$PYTHON" --version)"
 "$PYTHON" -m venv "$RES/venv"
 "$RES/venv/bin/python3" -m pip install --quiet --disable-pip-version-check --no-index \
 	-f "$RES/ghidra/Ghidra/Features/PyGhidra/pypkg/dist" pyghidra
+
+if [ -d "$GHIDRA_MCP_DIR/.git" ]; then
+	MCP_SRC="$TMP/ghidra-mcp"
+	mkdir -p "$MCP_SRC"
+	git -C "$GHIDRA_MCP_DIR" archive HEAD | tar -x -C "$MCP_SRC"
+	echo "Building GhidraMCP $(git -C "$GHIDRA_MCP_DIR" describe --tags --always)"
+	for p in "$SCRIPT_DIR"/ghidra-mcp/*.patch; do
+		if patch -d "$MCP_SRC" -p1 -s -f --dry-run < "$p" >/dev/null 2>&1; then
+			patch -d "$MCP_SRC" -p1 -s -f < "$p"
+		else
+			echo "  note: $(basename "$p") does not apply; building without it"
+		fi
+	done
+	if ! (cd "$MCP_SRC" && ./gradlew -I "$SCRIPT_DIR/ghidra-mcp/toolchain.gradle" \
+		buildExtension -PGHIDRA_INSTALL_DIR="$RES/ghidra") > "$TMP/ghidra-mcp-build.log" 2>&1; then
+		grep -E "error:|What went wrong" -A3 "$TMP/ghidra-mcp-build.log" | head -n 40 >&2
+		die "GhidraMCP build failed"
+	fi
+	MCP_ZIP=("$MCP_SRC"/build/distributions/GhidraMCP-*.zip)
+	[ -f "${MCP_ZIP[0]}" ] || die "GhidraMCP build produced no extension"
+	# extensions in the installation's Ghidra/Extensions are installed for every user
+	unzip -q "${MCP_ZIP[0]}" -d "$RES/ghidra/Ghidra/Extensions"
+
+	echo "Installing GhidraMCP bridge"
+	"$RES/venv/bin/python3" -m pip install --quiet --disable-pip-version-check "$MCP_SRC"
+else
+	echo "GhidraMCP checkout not found at $GHIDRA_MCP_DIR; building without it"
+fi
 
 echo "Compiling icon"
 # Produces Assets.car with the layered icon, plus Ghidra.icns for older macOS versions
