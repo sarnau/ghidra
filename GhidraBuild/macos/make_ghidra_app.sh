@@ -52,28 +52,22 @@ if [ -e "$APP" ]; then
 	if pgrep -f "$APP/Contents/MacOS/Ghidra|--install-dir $APP/Contents/Resources/ghidra" >/dev/null; then
 		die "Ghidra is running from $APP; quit it first"
 	fi
-	echo "Removing previous $APP"
-	rm -rf "$APP"
 fi
 
-RES="$APP/Contents/Resources"
-mkdir -p "$APP/Contents/MacOS" "$RES"
-touch "$APP/$MARKER"
-
-echo "Unpacking $(basename "$ZIP")"
+# Everything that can fail (builds, downloads) happens in TMP before the previous
+# application is replaced, so a failure leaves it intact.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+PIP=(--quiet --disable-pip-version-check)
+
+echo "Unpacking $(basename "$ZIP")"
 unzip -q "$ZIP" -d "$TMP"
 TOP=("$TMP"/ghidra_*)
 [ ${#TOP[@]} -eq 1 ] && [ -d "${TOP[0]}" ] || die "unexpected layout in $ZIP"
-mv "${TOP[0]}" "$RES/ghidra"
-GHIDRA_VERSION="$(sed -n 's/^application.version=//p' "$RES/ghidra/Ghidra/application.properties")"
+GHIDRA_DIR="${TOP[0]}"
+GHIDRA_VERSION="$(sed -n 's/^application.version=//p' "$GHIDRA_DIR/Ghidra/application.properties")"
 
-echo "Creating PyGhidra environment with $("$PYTHON" --version)"
-"$PYTHON" -m venv "$RES/venv"
-"$RES/venv/bin/python3" -m pip install --quiet --disable-pip-version-check --no-index \
-	-f "$RES/ghidra/Ghidra/Features/PyGhidra/pypkg/dist" pyghidra
-
+MCP_WHEELS=""
 if [ -d "$GHIDRA_MCP_DIR/.git" ]; then
 	MCP_SRC="$TMP/ghidra-mcp"
 	mkdir -p "$MCP_SRC"
@@ -87,27 +81,50 @@ if [ -d "$GHIDRA_MCP_DIR/.git" ]; then
 		fi
 	done
 	if ! (cd "$MCP_SRC" && ./gradlew -I "$SCRIPT_DIR/ghidra-mcp/toolchain.gradle" \
-		buildExtension -PGHIDRA_INSTALL_DIR="$RES/ghidra") > "$TMP/ghidra-mcp-build.log" 2>&1; then
+		buildExtension -PGHIDRA_INSTALL_DIR="$GHIDRA_DIR") > "$TMP/ghidra-mcp-build.log" 2>&1; then
 		grep -E "error:|What went wrong" -A3 "$TMP/ghidra-mcp-build.log" | head -n 40 >&2
-		die "GhidraMCP build failed"
+		die "GhidraMCP build failed; $APP was left unchanged"
 	fi
 	MCP_ZIP=("$MCP_SRC"/build/distributions/GhidraMCP-*.zip)
 	[ -f "${MCP_ZIP[0]}" ] || die "GhidraMCP build produced no extension"
 	# extensions in the installation's Ghidra/Extensions are installed for every user
-	unzip -q "${MCP_ZIP[0]}" -d "$RES/ghidra/Ghidra/Extensions"
+	unzip -q "${MCP_ZIP[0]}" -d "$GHIDRA_DIR/Ghidra/Extensions"
 
-	echo "Installing GhidraMCP bridge"
-	"$RES/venv/bin/python3" -m pip install --quiet --disable-pip-version-check "$MCP_SRC"
+	echo "Fetching GhidraMCP bridge packages"
+	# build the bridge and download its dependencies now, so installing later needs no network
+	"$PYTHON" -m venv "$TMP/wheel-venv"
+	MCP_WHEELS="$TMP/wheels"
+	"$TMP/wheel-venv/bin/python3" -m pip wheel "${PIP[@]}" -w "$MCP_WHEELS" "$MCP_SRC" \
+		|| die "could not build the GhidraMCP bridge; $APP was left unchanged"
 else
 	echo "GhidraMCP checkout not found at $GHIDRA_MCP_DIR; building without it"
 fi
 
 echo "Compiling icon"
 # Produces Assets.car with the layered icon, plus Ghidra.icns for older macOS versions
-xcrun actool "$SCRIPT_DIR/Ghidra.icon" --compile "$RES" --platform macosx \
+mkdir -p "$TMP/icon"
+xcrun actool "$SCRIPT_DIR/Ghidra.icon" --compile "$TMP/icon" --platform macosx \
 	--minimum-deployment-target 11.0 --app-icon Ghidra \
 	--output-partial-info-plist "$TMP/icon.plist" --errors --warnings >/dev/null
-[ -f "$RES/Assets.car" ] && [ -f "$RES/Ghidra.icns" ] || die "actool did not produce the icon"
+[ -f "$TMP/icon/Assets.car" ] && [ -f "$TMP/icon/Ghidra.icns" ] || die "actool did not produce the icon"
+
+if [ -e "$APP" ]; then
+	echo "Replacing previous $APP"
+	rm -rf "$APP"
+fi
+RES="$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$RES"
+touch "$APP/$MARKER"
+mv "$GHIDRA_DIR" "$RES/ghidra"
+mv "$TMP/icon/Assets.car" "$TMP/icon/Ghidra.icns" "$RES/"
+
+echo "Creating PyGhidra environment with $("$PYTHON" --version)"
+"$PYTHON" -m venv "$RES/venv"
+"$RES/venv/bin/python3" -m pip install "${PIP[@]}" --no-index \
+	-f "$RES/ghidra/Ghidra/Features/PyGhidra/pypkg/dist" pyghidra
+if [ -n "$MCP_WHEELS" ]; then
+	"$RES/venv/bin/python3" -m pip install "${PIP[@]}" --no-index -f "$MCP_WHEELS" ghidra-mcp-bridge
+fi
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

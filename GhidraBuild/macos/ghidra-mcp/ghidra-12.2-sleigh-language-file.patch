@@ -1,0 +1,16 @@
+diff --git a/src/main/java/com/xebyte/core/ServiceUtils.java b/src/main/java/com/xebyte/core/ServiceUtils.java
+index 1fc2b17..3294a0f 100644
+--- a/src/main/java/com/xebyte/core/ServiceUtils.java
++++ b/src/main/java/com/xebyte/core/ServiceUtils.java
+@@ -752,8 +752,9 @@ public final class ServiceUtils {
+      * silently drop it.
+      */
+     private static String decoderOf(ghidra.program.model.lang.LanguageDescription d) {
+-        if (d instanceof ghidra.program.model.lang.SleighLanguageDescription sld) {
+-            generic.jar.ResourceFile sla = sld.getSlaFile();
++        if (d instanceof ghidra.app.plugin.processors.sleigh.SleighLanguageDescription sld) {
++            generic.jar.ResourceFile sla =
++                sld.getLanguageFile() == null ? null : sld.getLanguageFile().getSlaFile();
+             if (sla != null) return sla.getAbsolutePath();
+         }
+         return d.getLanguageID().getIdAsString();
