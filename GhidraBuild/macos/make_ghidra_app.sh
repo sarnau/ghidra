@@ -48,7 +48,8 @@ xcrun --find actool >/dev/null 2>&1 || die "actool not found; install Xcode"
 if [ -e "$APP" ]; then
 	# never delete an application this script did not create
 	[ -f "$APP/$MARKER" ] || die "$APP exists and was not created by this script"
-	if pgrep -f "$APP/Contents/" >/dev/null; then
+	# Ghidra or its launcher; MCP clients running the bundled bridge do not count
+	if pgrep -f "$APP/Contents/MacOS/Ghidra|--install-dir $APP/Contents/Resources/ghidra" >/dev/null; then
 		die "Ghidra is running from $APP; quit it first"
 	fi
 	echo "Removing previous $APP"
@@ -147,6 +148,10 @@ LOG="$HOME/Library/Logs/Ghidra.log"
 
 # Apps started from Finder get a minimal PATH.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# Let GhidraMCP's run_ghidra_script and run_script_inline tools execute scripts.
+# The plugin reads this from the Ghidra process's environment.
+export GHIDRA_MCP_ALLOW_SCRIPTS=1
 
 fail() {
 	osascript -e 'on run argv' \
